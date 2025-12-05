@@ -164,7 +164,7 @@
     // ÄNDERE DIESE URL, sobald du deinen Docker-Server deployt hast!
     // Lokal testen: 'http://localhost:3000/generate-calendar'
     // Live Server: 'https://dein-nixpacks-server.com/generate-calendar'
-    const SERVER_URL = 'http://localhost:3000/generate-calendar';
+    const SERVER_URL = '/generate-calendar';
 
     const CONFIG = {
         de: {
@@ -382,7 +382,15 @@
         try {
             // 1. Wir nehmen das gesamte aktuelle HTML (inkl. aller Base64 Bilder)
             // Das ist der "State", den der Server rendern soll.
-            const htmlContent = document.documentElement.outerHTML;
+            let htmlContent = document.documentElement.outerHTML;
+
+            // WICHTIG: Den aktuellen JavaScript State (Sprache, Jahr, etc.) in das HTML injizieren!
+            // Sonst lädt der Server das HTML und startet mit den Default-Werten (DE, false).
+            const stateRegex = /let state = \{[\s\S]*?\};/;
+            const currentStateJson = JSON.stringify(state, null, 4);
+            if (stateRegex.test(htmlContent)) {
+                htmlContent = htmlContent.replace(stateRegex, `let state = ${currentStateJson};`);
+            }
 
             console.log("Sende Daten an:", SERVER_URL);
 
