@@ -382,7 +382,15 @@
         try {
             // 1. Wir nehmen das gesamte aktuelle HTML (inkl. aller Base64 Bilder)
             // Das ist der "State", den der Server rendern soll.
-            const htmlContent = document.documentElement.outerHTML;
+            let htmlContent = document.documentElement.outerHTML;
+
+            // WICHTIG: Den aktuellen JavaScript State (Sprache, Jahr, etc.) in das HTML injizieren!
+            // Sonst lädt der Server das HTML und startet mit den Default-Werten (DE, false).
+            const stateRegex = /let state = \{[\s\S]*?\};/;
+            const currentStateJson = JSON.stringify(state, null, 4);
+            if (stateRegex.test(htmlContent)) {
+                htmlContent = htmlContent.replace(stateRegex, `let state = ${currentStateJson};`);
+            }
 
             console.log("Sende Daten an:", SERVER_URL);
 
