@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Fotokalender Generator (High Quality Print)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Lato:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* DIN A4 Maße (gerundet für Screen) */
+            --a4-width: 216mm;
+            --a4-height: 303mm;
+        }
+
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Lato', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .font-handwriting { font-family: 'Great Vibes', cursive; }
+        .font-serif-title { font-family: 'Playfair Display', serif; }
+
+        .sheet {
+            width: var(--a4-width);
+            height: var(--a4-height);
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin: 0 auto 2rem auto;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Hilfsmuster für Transparenz-Modus */
+        .transparent-pattern {
+            background-color: #eee;
+            background-image: 
+                linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), 
+                linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        .img-container { transition: all 0.3s ease; }
+        .img-container:hover .overlay { opacity: 1; }
+        
+        .overlay {
+            background: rgba(0,0,0,0.4);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* Fixierte Header Positionierung */
+        .header-container-fixed {
+            position: relative;
+            height: 80px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .month-title-abs {
+            position: absolute;
+            left: 0;
+            bottom: 10px;
+            line-height: 1;
+            margin: 0;
+        }
+
+        .year-title-abs {
+            position: absolute;
+            right: 0;
+            bottom: 12px;
+            line-height: 1;
+            margin: 0;
+            text-align: right;
+        }
+
+        .separator-line-abs {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            background-color: #1f2937;
+        }
+
+        .grid-header-cell {
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+
+        /* Druck-Styles - falls man doch mal STRG+P drückt */
+        @media print {
+            @page { size: 216mm 303mm; margin: 0; }
+            body { background: none; margin: 0; }
+            .no-print { display: none !important; }
+            .sheet { margin: 0; box-shadow: none; page-break-after: always; }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+<div class="no-print fixed top-0 left-0 w-full bg-white/95 backdrop-blur-md border-b border-gray-200 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-3">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-rose-500 text-3xl">favorite</span>
+                    <h1 class="text-xl font-serif-title font-bold text-gray-800">Love Calendar</h1>
+                    <span class="text-xs bg-gray-200 px-2 py-0.5 rounded text-gray-500 font-mono">303x216mm</span>
+                </div>
+                <div class="flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
+                    <button class="px-3 py-1 rounded-full text-sm font-bold transition-all bg-white shadow-sm text-gray-800" id="btn-de" onclick="setLanguage('de')">DE</button>
+                    <button class="px-3 py-1 rounded-full text-sm font-bold transition-all text-gray-500 hover:text-gray-800" id="btn-hu" onclick="setLanguage('hu')">HU</button>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4 flex-wrap justify-center">
+                <div class="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+                    <button class="p-1 hover:bg-gray-200 rounded" onclick="changeYear(-1)"><span class="material-symbols-outlined text-sm">remove</span></button>
+                    <input class="bg-transparent text-center font-bold w-16 outline-none" id="yearInput" onchange="renderCalendar()" type="number" value="2025">
+                    <button class="p-1 hover:bg-gray-200 rounded" onclick="changeYear(1)"><span class="material-symbols-outlined text-sm">add</span></button>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
+                    <input class="w-4 h-4 text-rose-600 rounded focus:ring-rose-500" id="transparentMode" onchange="toggleTransparentMode()" type="checkbox">
+                    <span class="text-sm font-medium text-gray-700">Transparenter Fotobereich</span>
+                </label>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button class="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-full font-medium transition-colors shadow-md text-sm" onclick="exportHtml()" title="Projekt speichern">
+                    <span class="material-symbols-outlined text-lg">save</span>
+                    <span class="hidden sm:inline">Projekt sichern</span>
+                </button>
+                
+                <button id="serverDownloadBtn" class="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 rounded-full font-medium transition-colors shadow-md text-sm" onclick="downloadAllPagesServer()">
+                    <span class="material-symbols-outlined text-lg">cloud_download</span>
+                    <span>High-Res Export (ZIP)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="pt-28 pb-20 flex flex-col items-center gap-12 min-h-screen" id="calendar-container">
+    </div>
+
+<input accept="image/*" class="hidden" id="imageUpload" type="file">
+
+<script>
+    // ==========================================
+    // CONFIGURATION
+    // ==========================================
+    
+    // ÄNDERE DIESE URL, sobald du deinen Docker-Server deployt hast!
+    // Lokal testen: 'http://localhost:3000/generate-calendar'
+    // Live Server: 'https://dein-nixpacks-server.com/generate-calendar'
+    const SERVER_URL = 'http://localhost:3000/generate-calendar';
+
+    const CONFIG = {
+        de: {
+            months: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+            days: ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+            coverTitle: "Unser Jahr",
+            dateFormat: (year) => `${year}`
+        },
+        hu: {
+            months: ["Január", "Február", "Március", "Április", "Május", "Június", "Július", "Augusztus", "Szeptember", "Október", "November", "December"],
+            days: ["H", "K", "Sze", "Cs", "P", "Szo", "V"],
+            coverTitle: "A Mi Évünk",
+            dateFormat: (year) => `${year}.`
+        }
+    };
+
+    // Placeholder SVG (damit es nicht leer aussieht)
+    const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23e5e7eb'/%3E%3Cstop offset='100%25' stop-color='%23d1d5db'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='800' height='600' fill='url(%23g)'/%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='24' fill='%239ca3af' text-anchor='middle' dy='.3em'%3EHier klicken für Bild%3C/text%3E%3C/svg%3E";
+
+    let state = {
+        lang: "de",
+        year: 2025,
+        transparentMode: false,
+        currentUploadIndex: null,
+        // Initial alle Bilder mit Placeholder füllen
+        images: {
+            "cover": PLACEHOLDER_IMG,
+            ...Object.fromEntries(Array.from({length: 12}, (_, i) => [i, PLACEHOLDER_IMG]))
+        }
+    };
+
+    const container = document.getElementById('calendar-container');
+    const fileInput = document.getElementById('imageUpload');
+    const btnDe = document.getElementById('btn-de');
+    const btnHu = document.getElementById('btn-hu');
+    const transparentCheck = document.getElementById('transparentMode');
+    const yearInput = document.getElementById('yearInput');
+
+    // ==========================================
+    // CORE LOGIC
+    // ==========================================
+
+    function setLanguage(lang) {
+        state.lang = lang;
+        updateUiControls();
+        renderCalendar();
+    }
+
+    function updateUiControls() {
+        const activeClass = "px-3 py-1 rounded-full text-sm font-bold transition-all bg-white shadow-sm text-gray-800";
+        const inactiveClass = "px-3 py-1 rounded-full text-sm font-bold transition-all text-gray-500 hover:text-gray-800";
+        
+        btnDe.className = state.lang === 'de' ? activeClass : inactiveClass;
+        btnHu.className = state.lang === 'hu' ? activeClass : inactiveClass;
+        
+        transparentCheck.checked = state.transparentMode;
+        yearInput.value = state.year;
+    }
+
+    function toggleTransparentMode() {
+        state.transparentMode = transparentCheck.checked;
+        renderCalendar();
+    }
+
+    function changeYear(delta) {
+        state.year += delta;
+        yearInput.value = state.year;
+        renderCalendar();
+    }
+
+    function getStartDay(year, month) {
+        // 0 = Sonntag, wir wollen 0 = Montag
+        const date = new Date(year, month, 1);
+        let day = date.getDay();
+        return day === 0 ? 6 : day - 1;
+    }
+
+    function getDaysInMonth(year, month) {
+        return new Date(year, month + 1, 0).getDate();
+    }
+
+    function renderCalendar() {
+        container.innerHTML = '';
+        const langData = CONFIG[state.lang];
+        const isTransparent = state.transparentMode;
+
+        // --- 1. Cover ---
+        const coverSheet = document.createElement('div');
+        coverSheet.className = 'sheet group relative';
+        coverSheet.id = 'sheet-cover';
+        
+        let coverImgHtml = isTransparent 
+            ? `<div class="absolute inset-0 transparent-pattern flex items-center justify-center border-b-8 border-rose-500/50"><div class="bg-white/80 backdrop-blur px-6 py-3 rounded-xl shadow-sm text-center transparent-placeholder-content"><span class="material-symbols-outlined text-4xl text-gray-400 mb-2">image_not_supported</span><p class="text-gray-500 font-medium">Transparent</p></div></div>`
+            : `<div class="absolute inset-0 img-container bg-gray-200 cursor-pointer" onclick="triggerUpload('cover')"><img src="${state.images.cover}" class="w-full h-full object-cover" alt="Cover"><div class="overlay absolute inset-0 flex flex-col items-center justify-center text-white"><span class="material-symbols-outlined text-6xl drop-shadow-lg">edit</span></div></div>`;
+
+        coverSheet.innerHTML = `
+            ${coverImgHtml}
+            <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white/95 to-transparent pt-40 pb-20 px-12 flex flex-col items-center text-center pointer-events-none">
+                <h1 class="font-handwriting text-8xl text-rose-600 mb-6 drop-shadow-sm export-safe-text" style="line-height: 1.1;">${langData.coverTitle}</h1>
+                <div class="h-1 w-24 bg-gray-800 rounded-full mb-8"></div>
+                <h2 class="font-serif-title text-6xl font-bold text-gray-800 tracking-tight export-safe-text" style="line-height: 1;">${langData.dateFormat(state.year)}</h2>
+            </div>
+            <div class="no-print absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                 <button onclick="downloadSheetClient('sheet-cover', 'Cover')" title="Schnelle Vorschau (Niedrige Qualität)" class="bg-white hover:bg-gray-50 text-gray-800 p-2 rounded-full shadow-lg border border-gray-200 pointer-events-auto"><span class="material-symbols-outlined">image</span></button>
+            </div>
+        `;
+        container.appendChild(coverSheet);
+
+        // --- 2. Monate ---
+        langData.months.forEach((monthName, index) => {
+            const sheetId = `sheet-${index}`;
+            const sheet = document.createElement('div');
+            sheet.className = 'sheet group';
+            sheet.id = sheetId;
+
+            let imgAreaHtml = isTransparent 
+                ? `<div class="h-[65%] w-full transparent-pattern relative flex items-center justify-center border-b border-gray-200"><div class="bg-white/80 backdrop-blur px-4 py-2 rounded-lg shadow-sm text-center transparent-placeholder-content"><span class="material-symbols-outlined text-3xl text-gray-400">image</span></div></div>`
+                : `<div class="h-[65%] w-full img-container relative bg-gray-100 cursor-pointer overflow-hidden" onclick="triggerUpload('${index}')"><img src="${state.images[index]}" class="w-full h-full object-cover" alt="${monthName}"><div class="overlay absolute inset-0 flex items-center justify-center text-white"><span class="material-symbols-outlined text-5xl drop-shadow-lg">edit</span></div></div>`;
+
+            const startDay = getStartDay(state.year, index);
+            const daysInMonth = getDaysInMonth(state.year, index);
+            let gridCells = '';
+
+            langData.days.forEach(day => {
+                gridCells += `<div class="text-center text-xs font-bold text-gray-500 uppercase tracking-widest grid-header-cell">${day}</div>`;
+            });
+
+            for(let i=0; i<startDay; i++) gridCells += `<div style="border-bottom: 1px solid transparent"></div>`;
+
+            for(let d=1; d<=daysInMonth; d++) {
+                const date = new Date(state.year, index, d);
+                const isSunday = date.getDay() === 0;
+                gridCells += `
+                    <div class="h-full flex items-start justify-center pt-2">
+                        <span class="text-xl font-medium ${isSunday ? 'text-rose-500' : 'text-gray-700'}">${d}</span>
+                    </div>
+                `;
+            }
+
+            sheet.innerHTML = `
+                ${imgAreaHtml}
+                <div class="h-[35%] w-full bg-white px-10 py-6 flex flex-col justify-between relative z-10">
+                    <div class="header-container-fixed">
+                        <h2 class="font-serif-title text-5xl font-bold text-gray-800 month-title-abs">${monthName}</h2>
+                        <span class="font-handwriting text-3xl text-gray-400 year-title-abs">${state.lang === 'hu' ? state.year + '.' : state.year}</span>
+                        <div class="separator-line-abs"></div>
+                    </div>
+                    <div class="grid grid-cols-7 gap-y-1 h-full content-start">
+                        ${gridCells}
+                    </div>
+                </div>
+                <div class="no-print absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onclick="downloadSheetClient('${sheetId}', '${monthName}')" title="Schnelle Vorschau (Niedrige Qualität)" class="bg-white hover:bg-gray-50 text-gray-800 p-2 rounded-full shadow-lg border border-gray-200 pointer-events-auto">
+                        <span class="material-symbols-outlined">image</span>
+                    </button>
+                </div>
+            `;
+            container.appendChild(sheet);
+        });
+    }
+
+    // --- Upload Logic ---
+    function triggerUpload(targetKey) {
+        state.currentUploadIndex = targetKey;
+        fileInput.click();
+    }
+    fileInput.addEventListener('change', (e) => {
+        if(e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                state.images[state.currentUploadIndex] = evt.target.result;
+                renderCalendar();
+                fileInput.value = '';
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+
+    // --- Projekt speichern (HTML Download) ---
+    function exportHtml() {
+        let htmlContent = document.documentElement.outerHTML;
+        htmlContent = '<!DOCTYPE html>\n' + htmlContent;
+        // Speichere den aktuellen State im HTML
+        const stateRegex = /let state = \{[\s\S]*?\};/;
+        const currentStateJson = JSON.stringify(state, null, 4);
+        if (stateRegex.test(htmlContent)) {
+            htmlContent = htmlContent.replace(stateRegex, `let state = ${currentStateJson};`);
+        }
+        const blob = new Blob([htmlContent], {type: 'text/html'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'mein_kalender_projekt.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // ==========================================
+    // SERVER-SIDE DOWNLOAD (Die neue "Puppeteer" Lösung)
+    // ==========================================
+    async function downloadAllPagesServer() {
+        const btn = document.getElementById('serverDownloadBtn');
+        const originalContent = btn.innerHTML;
+        
+        // Loading State
+        btn.innerHTML = `
+            <span class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+            <span>Rendere PDF/ZIP...</span>
+        `;
+        btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+        try {
+            // 1. Wir nehmen das gesamte aktuelle HTML (inkl. aller Base64 Bilder)
+            // Das ist der "State", den der Server rendern soll.
+            const htmlContent = document.documentElement.outerHTML;
+
+            console.log("Sende Daten an:", SERVER_URL);
+
+            // 2. Senden an den Docker-Container
+            const response = await fetch(SERVER_URL, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json' 
+                },
+                // Body muss JSON sein
+                body: JSON.stringify({ htmlContent }) 
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server Fehler (${response.status}): ${errorText}`);
+            }
+
+            // 3. ZIP Blob empfangen
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            
+            // 4. Download starten
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Kalender_${state.year}_HighRes.zip`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+        } catch (err) {
+            console.error(err);
+            alert("Fehler beim Server-Rendering:\n" + err.message + "\n\nIst der Docker-Container gestartet?");
+        } finally {
+            // Reset Button
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+            btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        }
+    }
+
+    // ==========================================
+    // CLIENT-SIDE FALLBACK (html2canvas)
+    // Nur für schnelle Einzel-Vorschauen
+    // ==========================================
+    async function downloadSheetClient(elementId, filenamePrefix) {
+        const element = document.getElementById(elementId);
+        if(!element) return;
+        
+        const btn = element.querySelector('.no-print button');
+        const originalIcon = btn ? btn.innerHTML : '';
+        if(btn) btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span>';
+
+        // Markiere für Transparenz (falls aktiviert)
+        element.classList.add('capturing-transparency');
+        
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2, // Niedrigere Skalierung für Client
+                useCORS: true,
+                backgroundColor: null,
+                logging: false,
+                ignoreElements: (el) => el.classList.contains('no-print')
+            });
+            
+            const link = document.createElement('a');
+            link.download = `Vorschau_${filenamePrefix}.png`;
+            link.href = canvas.toDataURL("image/png");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (err) {
+            console.error(err);
+            alert("Fehler bei der Vorschau.");
+        } finally {
+             element.classList.remove('capturing-transparency');
+             if(btn) btn.innerHTML = originalIcon;
+        }
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+        updateUiControls();
+        renderCalendar();
+    });
+</script>
+</body>
+</html>
