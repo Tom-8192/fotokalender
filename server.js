@@ -9,6 +9,11 @@ const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cors());
 
+// Serve index.html on root
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
+
 app.post('/generate-calendar', async (req, res) => {
     // 1. Das HTML kommt vom Frontend
     const { htmlContent } = req.body;
