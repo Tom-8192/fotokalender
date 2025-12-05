@@ -9,6 +9,11 @@ const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cors());
 
+// Serve index.html on root
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
+
 app.post('/generate-calendar', async (req, res) => {
     // 1. Das HTML kommt vom Frontend
     const { htmlContent } = req.body;
@@ -45,7 +50,9 @@ app.post('/generate-calendar', async (req, res) => {
             content: `
                 .no-print { display: none !important; }
                 body { background: transparent !important; }
-                .sheet { margin: 0 !important; box-shadow: none !important; }
+                .sheet { margin: 0 !important; box-shadow: none !important; background: transparent !important; }
+                .transparent-pattern { background: transparent !important; background-image: none !important; }
+                .transparent-placeholder-content { display: none !important; }
             `
         });
 
