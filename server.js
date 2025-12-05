@@ -50,7 +50,9 @@ app.post('/generate-calendar', async (req, res) => {
             content: `
                 .no-print { display: none !important; }
                 body { background: transparent !important; }
-                .sheet { margin: 0 !important; box-shadow: none !important; }
+                .sheet { margin: 0 !important; box-shadow: none !important; background: transparent !important; }
+                .transparent-pattern { background: transparent !important; background-image: none !important; }
+                .transparent-placeholder-content { display: none !important; }
             `
         });
 
