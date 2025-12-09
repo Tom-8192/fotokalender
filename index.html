@@ -177,7 +177,7 @@
             months: ["Január", "Február", "Március", "Április", "Május", "Június", "Július", "Augusztus", "Szeptember", "Október", "November", "December"],
             days: ["H", "K", "Sze", "Cs", "P", "Szo", "V"],
             coverTitle: "A Mi Évünk",
-            dateFormat: (year) => `${year}.`
+            dateFormat: (year) => `${year}`
         }
     };
 
@@ -309,7 +309,7 @@
                 <div class="h-[35%] w-full bg-white px-10 py-6 flex flex-col justify-between relative z-10">
                     <div class="header-container-fixed">
                         <h2 class="font-serif-title text-5xl font-bold text-gray-800 month-title-abs">${monthName}</h2>
-                        <span class="font-handwriting text-3xl text-gray-400 year-title-abs">${state.lang === 'hu' ? state.year + '.' : state.year}</span>
+                        <span class="font-handwriting text-3xl text-gray-400 year-title-abs">${state.year}</span>
                         <div class="separator-line-abs"></div>
                     </div>
                     <div class="grid grid-cols-7 gap-y-1 h-full content-start">
