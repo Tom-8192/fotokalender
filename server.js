@@ -43,7 +43,8 @@ app.post('/generate-calendar', async (req, res) => {
         await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 2 }); // ~A4 Proportionen
 
         // HTML setzen
-        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        // Timeout erhöhen auf 60 Sekunden für große Payloads
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 60000 });
 
         // CSS Injection für sauberen Druck
         await page.addStyleTag({
