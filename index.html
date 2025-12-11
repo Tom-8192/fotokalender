@@ -193,26 +193,8 @@
         images: {
             "cover": PLACEHOLDER_IMG,
             ...Object.fromEntries(Array.from({length: 12}, (_, i) => [i, PLACEHOLDER_IMG]))
-        },
-        // Positionen der Bilder (x, y in %)
-        imagePositions: {
-            "cover": { x: 50, y: 50 },
-            ...Object.fromEntries(Array.from({length: 12}, (_, i) => [i, { x: 50, y: 50 }]))
-        },
-        // Text-Overrides für Cover
-        textOverrides: {
-            coverTitle: null,
-            coverSubtitle: null
         }
     };
-
-    // Drag & Drop State
-    let isDragging = false;
-    let dragTargetKey = null;
-    let dragStartMouseX = 0;
-    let dragStartMouseY = 0;
-    let dragStartPosX = 50;
-    let dragStartPosY = 50;
 
     const container = document.getElementById('calendar-container');
     const fileInput = document.getElementById('imageUpload');
@@ -224,16 +206,6 @@
     // ==========================================
     // CORE LOGIC
     // ==========================================
-
-    function escapeHtml(text) {
-        if (!text) return text;
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 
     function setLanguage(lang) {
         state.lang = lang;
@@ -284,30 +256,16 @@
         coverSheet.className = 'sheet group relative';
         coverSheet.id = 'sheet-cover';
         
-        // Texte abrufen (State Override oder Default)
-        const coverTitle = state.textOverrides.coverTitle !== null ? state.textOverrides.coverTitle : langData.coverTitle;
-        const coverSubtitle = state.textOverrides.coverSubtitle !== null ? state.textOverrides.coverSubtitle : langData.dateFormat(state.year);
-
-        const coverPos = state.imagePositions['cover'] || { x: 50, y: 50 };
-
         let coverImgHtml = isTransparent 
             ? `<div class="absolute inset-0 transparent-pattern flex items-center justify-center border-b-8 border-rose-500/50"><div class="bg-white/80 backdrop-blur px-6 py-3 rounded-xl shadow-sm text-center transparent-placeholder-content"><span class="material-symbols-outlined text-4xl text-gray-400 mb-2">image_not_supported</span><p class="text-gray-500 font-medium">Transparent</p></div></div>`
-            : `<div class="absolute inset-0 img-container bg-gray-200 cursor-move" onmousedown="startDrag(event, 'cover')">
-                 <img src="${state.images.cover}" class="w-full h-full object-cover pointer-events-none select-none" style="object-position: ${coverPos.x}% ${coverPos.y}%" id="img-cover" alt="Cover">
-                 <div class="overlay absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <button onclick="triggerUpload('cover')" class="pointer-events-auto bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-4 rounded-full transition-all transform hover:scale-110 shadow-lg border border-white/30" title="Bild ändern">
-                        <span class="material-symbols-outlined text-4xl drop-shadow-lg">edit</span>
-                    </button>
-                    <span class="text-white/80 text-sm mt-2 font-medium drop-shadow-md">Gedrückt halten zum Verschieben</span>
-                 </div>
-               </div>`;
+            : `<div class="absolute inset-0 img-container bg-gray-200 cursor-pointer" onclick="triggerUpload('cover')"><img src="${state.images.cover}" class="w-full h-full object-cover" alt="Cover"><div class="overlay absolute inset-0 flex flex-col items-center justify-center text-white"><span class="material-symbols-outlined text-6xl drop-shadow-lg">edit</span></div></div>`;
 
         coverSheet.innerHTML = `
             ${coverImgHtml}
             <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white/95 to-transparent pt-40 pb-20 px-12 flex flex-col items-center text-center pointer-events-none">
-                <h1 contenteditable="true" oninput="updateText('coverTitle', this.innerText)" class="font-handwriting text-8xl text-rose-600 mb-6 drop-shadow-sm export-safe-text pointer-events-auto outline-none focus:border-b-2 border-rose-200" style="line-height: 1.1;">${escapeHtml(coverTitle)}</h1>
+                <h1 class="font-handwriting text-8xl text-rose-600 mb-6 drop-shadow-sm export-safe-text" style="line-height: 1.1;">${langData.coverTitle}</h1>
                 <div class="h-1 w-24 bg-gray-800 rounded-full mb-8"></div>
-                <h2 contenteditable="true" oninput="updateText('coverSubtitle', this.innerText)" class="font-serif-title text-6xl font-bold text-gray-800 tracking-tight export-safe-text pointer-events-auto outline-none focus:border-b-2 border-gray-300" style="line-height: 1;">${escapeHtml(coverSubtitle)}</h2>
+                <h2 class="font-serif-title text-6xl font-bold text-gray-800 tracking-tight export-safe-text" style="line-height: 1;">${langData.dateFormat(state.year)}</h2>
             </div>
             <div class="no-print absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                  <button onclick="downloadSheetClient('sheet-cover', 'Cover')" title="Schnelle Vorschau (Niedrige Qualität)" class="bg-white hover:bg-gray-50 text-gray-800 p-2 rounded-full shadow-lg border border-gray-200 pointer-events-auto"><span class="material-symbols-outlined">image</span></button>
@@ -322,18 +280,9 @@
             sheet.className = 'sheet group';
             sheet.id = sheetId;
 
-            const pos = state.imagePositions[index] || { x: 50, y: 50 };
-
             let imgAreaHtml = isTransparent 
                 ? `<div class="h-[65%] w-full transparent-pattern relative flex items-center justify-center border-b border-gray-200"><div class="bg-white/80 backdrop-blur px-4 py-2 rounded-lg shadow-sm text-center transparent-placeholder-content"><span class="material-symbols-outlined text-3xl text-gray-400">image</span></div></div>`
-                : `<div class="h-[65%] w-full img-container relative bg-gray-100 cursor-move overflow-hidden" onmousedown="startDrag(event, '${index}')">
-                    <img src="${state.images[index]}" class="w-full h-full object-cover pointer-events-none select-none" style="object-position: ${pos.x}% ${pos.y}%" id="img-${index}" alt="${monthName}">
-                    <div class="overlay absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <button onclick="triggerUpload('${index}')" class="pointer-events-auto bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg border border-white/30" title="Bild ändern">
-                            <span class="material-symbols-outlined text-3xl drop-shadow-lg">edit</span>
-                        </button>
-                    </div>
-                   </div>`;
+                : `<div class="h-[65%] w-full img-container relative bg-gray-100 cursor-pointer overflow-hidden" onclick="triggerUpload('${index}')"><img src="${state.images[index]}" class="w-full h-full object-cover" alt="${monthName}"><div class="overlay absolute inset-0 flex items-center justify-center text-white"><span class="material-symbols-outlined text-5xl drop-shadow-lg">edit</span></div></div>`;
 
             const startDay = getStartDay(state.year, index);
             const daysInMonth = getDaysInMonth(state.year, index);
@@ -377,11 +326,6 @@
         });
     }
 
-    // --- Text Edit Logic ---
-    function updateText(key, value) {
-        state.textOverrides[key] = value;
-    }
-
     // --- Upload Logic ---
     function triggerUpload(targetKey) {
         state.currentUploadIndex = targetKey;
@@ -392,66 +336,10 @@
             const reader = new FileReader();
             reader.onload = function(evt) {
                 state.images[state.currentUploadIndex] = evt.target.result;
-                // Reset position on new image upload
-                state.imagePositions[state.currentUploadIndex] = { x: 50, y: 50 };
                 renderCalendar();
                 fileInput.value = '';
             };
             reader.readAsDataURL(e.target.files[0]);
-        }
-    });
-
-    // --- Drag & Drop Logic ---
-    function startDrag(e, key) {
-        if(e.button !== 0) return; // Nur linke Maustaste
-        isDragging = true;
-        dragTargetKey = key;
-        dragStartMouseX = e.clientX;
-        dragStartMouseY = e.clientY;
-
-        const currentPos = state.imagePositions[key] || { x: 50, y: 50 };
-        dragStartPosX = currentPos.x;
-        dragStartPosY = currentPos.y;
-
-        document.body.style.cursor = 'grabbing';
-    }
-
-    window.addEventListener('mousemove', (e) => {
-        if (!isDragging || dragTargetKey === null) return;
-
-        e.preventDefault();
-
-        const deltaX = e.clientX - dragStartMouseX;
-        const deltaY = e.clientY - dragStartMouseY;
-
-        // Sensitivität: Wie viel % bewegt sich das Bild pro Pixel Mausbewegung?
-        // Da wir nicht wissen, wie groß das Bild im Verhältnis zum Container ist, schätzen wir.
-        // Ein negativer Faktor ist nötig, da wir das Bild "ziehen".
-        // Ziehen nach rechts (positiv) -> Bild soll nach rechts -> 50% zu 0% (negativ)
-        const sensitivity = 0.2;
-
-        let newX = dragStartPosX - (deltaX * sensitivity);
-        let newY = dragStartPosY - (deltaY * sensitivity);
-
-        // Clamp values 0-100%
-        newX = Math.max(0, Math.min(100, newX));
-        newY = Math.max(0, Math.min(100, newY));
-
-        // Update State
-        state.imagePositions[dragTargetKey] = { x: newX, y: newY };
-
-        // Direct DOM update for performance
-        const img = document.getElementById(`img-${dragTargetKey}`);
-        if(img) {
-            img.style.objectPosition = `${newX}% ${newY}%`;
-        }
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            dragTargetKey = null;
-            document.body.style.cursor = '';
         }
     });
 
@@ -460,27 +348,11 @@
         let htmlContent = document.documentElement.outerHTML;
         htmlContent = '<!DOCTYPE html>\n' + htmlContent;
         // Speichere den aktuellen State im HTML
-        // Wir suchen nach der exakten Struktur der Variablen-Definition
-        // Da 'let state =' jetzt komplexer ist, verwenden wir einen simpleren Ansatz:
-        // Wir ersetzen den gesamten Script-Block, falls nötig, oder justieren den Regex.
-        // Der Regex muss "let state = {" bis zum passenden "};" matchen.
-        // Da wir wissen, dass 'state' die erste Variable im Script ist:
-        const stateRegex = /let state = \{[\s\S]*?\n    \};/m;
-
+        const stateRegex = /let state = \{[\s\S]*?\};/;
         const currentStateJson = JSON.stringify(state, null, 4);
         if (stateRegex.test(htmlContent)) {
             htmlContent = htmlContent.replace(stateRegex, `let state = ${currentStateJson};`);
-        } else {
-             // Fallback: versuche eine einfachere Suche, falls die Formatierung abweicht
-             const simpleRegex = /let state = \{[\s\S]*?\};/;
-             if(simpleRegex.test(htmlContent)) {
-                 htmlContent = htmlContent.replace(simpleRegex, `let state = ${currentStateJson};`);
-             } else {
-                 alert("Fehler: Konnte State nicht im HTML finden. Speichern fehlgeschlagen.");
-                 return;
-             }
         }
-
         const blob = new Blob([htmlContent], {type: 'text/html'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -514,16 +386,10 @@
 
             // WICHTIG: Den aktuellen JavaScript State (Sprache, Jahr, etc.) in das HTML injizieren!
             // Sonst lädt der Server das HTML und startet mit den Default-Werten (DE, false).
-            const stateRegex = /let state = \{[\s\S]*?\n    \};/m;
+            const stateRegex = /let state = \{[\s\S]*?\};/;
             const currentStateJson = JSON.stringify(state, null, 4);
-
             if (stateRegex.test(htmlContent)) {
                 htmlContent = htmlContent.replace(stateRegex, `let state = ${currentStateJson};`);
-            } else {
-                 const simpleRegex = /let state = \{[\s\S]*?\};/;
-                 if(simpleRegex.test(htmlContent)) {
-                     htmlContent = htmlContent.replace(simpleRegex, `let state = ${currentStateJson};`);
-                 }
             }
 
             console.log("Sende Daten an:", SERVER_URL);
